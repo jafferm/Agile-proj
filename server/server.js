@@ -1,29 +1,66 @@
-require('dotenv').config(); // Add this line to load environment variables from .env file
-
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const catalogRoutes = require('./routes/catalog');
-
+const express = require("express");
 const app = express();
-
+const mongoose = require("mongoose");
 app.use(express.json());
-app.use(cors()); // Add this line to enable CORS for all routes
+const cors = require("cors");
+app.use(cors());
+app.use("/files", express.static("files"));
+//mongodb connection----------------------------------------------
+const mongoUrl =
+  "mongodb+srv://hpolasani:TBb5lWGzmEjNGzCY@3dcp.v7atcc3.mongodb.net/employees?retryWrites=true&w=majority&appName=3DCP";
 
-app.use((req, res, next) => {
-  console.log(req.path, req.method);
-  next();
+mongoose
+  .connect(mongoUrl, {
+    useNewUrlParser: true,
+  })
+  .then(() => {
+    console.log("Connected to database");
+  })
+  .catch((e) => console.log(e));
+//multer------------------------------------------------------------
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./files");
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now();
+    cb(null, uniqueSuffix + file.originalname);
+  },
 });
 
-app.use('/api/catalog', catalogRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('connected to database');
-    app.listen(process.env.PORT, () => {
-      console.log('listening for requests on port', process.env.PORT);
+// Import the catalog model
+require('./models/Catalog');
+const Catalog = mongoose.model("Catalog");
+const upload = multer({ storage: storage });
+
+app.post("/upload-files", upload.single("file"), async (req, res) => {
+  console.log(req.file);
+  const title = req.body.title;
+  const fileName = req.file.filename;
+  try {
+    await Catalog.create({ title: title, pdf: fileName });
+    res.send({ status: "ok" });
+  } catch (error) {
+    res.json({ status: error });
+  }
+});
+
+app.get("/get-files", async (req, res) => {
+  try {
+    Catalog.find({}).then((data) => {
+      res.send({ status: "ok", data: data });
     });
-  })
-  .catch((err) => {
-    console.log(err);
-  });
+  } catch (error) {}
+});
+
+//apis----------------------------------------------------------------
+app.get("/", async (req, res) => {
+  res.send("Success!!!!!!");
+});
+
+app.listen(5000, () => {
+  console.log("Server Started");
+});

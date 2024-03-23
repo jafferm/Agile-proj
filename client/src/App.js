@@ -3,7 +3,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // pages & components
-import Home from './pages/Home';
 import Navbar from './components/Navbar';
 import UploadHouseForm from './components/UploadHouseForm';
 import UploadStructuralForm from './components/UploadStructuralForm';
@@ -16,7 +15,7 @@ function App() {
         <Navbar />
         <div className="pages">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<UploadHouseForm />} />
             <Route path="/upload-house" element={<UploadHouseForm />} />
             <Route path="/upload-structural" element={<UploadStructuralForm />} />
             <Route path="/upload-article" element={<UploadArticleForm />} />

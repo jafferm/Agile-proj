@@ -1,23 +1,50 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from "react";
 import { useCatalogContext } from '../hooks/useCatalogContext';
 import { useNavigate } from 'react-router-dom'; 
 import Select from "react-select";
+import axios from "axios";
 
-const UploadHouseForm = () => {
-  const { dispatch } = useCatalogContext();
-  const navigate = useNavigate();
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [formData, setFormData] = useState({
-    structureType: 'house',
-    userId: 1579,
-    images: [],
-    tags: [],
-    files: []
-  });
 
-  const [error, setError] = useState(null);
-  const [emptyFields, setEmptyFields] = useState([]);
+function UploadHouseForm() {
+  const [title, setTitle] = useState("");
+  const [file, setFile] = useState("");
+  const [allImage, setAllImage] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
 
+  useEffect(() => {
+    getPdf();
+  }, []);
+  const getPdf = async () => {
+    const result = await axios.get("http://localhost:5000/get-files");
+    console.log(result.data.data);
+    setAllImage(result.data.data);
+  };
+
+  const submitImage = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("file", file);
+    console.log(title, file);
+
+    const result = await axios.post(
+      "http://localhost:5000/upload-files",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    console.log(result);
+    if (result.data.status == "ok") {
+      alert("Uploaded Successfully!!!");
+      getPdf();
+    }
+  };
+  const showPdf = (pdf) => {
+    // window.open(`http://localhost:5000/files/${pdf}`, "_blank", "noreferrer");
+    setPdfFile(`http://localhost:5000/files/${pdf}`)
+  };
+ 
   const tagOptions = [
     { value: "residential", label: "Residential" },
     { value: "business", label: "Business" },
@@ -54,155 +81,34 @@ const UploadHouseForm = () => {
     { value: "southern", label: "Southern" },
     { value: "Victorian", label: "Victorian" },
   ];
-
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
-    setFormData({
-      ...formData,
-      images: files,
-      emptyFields: emptyFields ? emptyFields.filter(field => field !== 'images') : []
-    });
-  };
-  
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    const allowedExtensions = ['.pdf', '.obj', '.stl'];
-    const validFiles = files.filter(file => {
-      const extension = file.name.split('.').pop();
-      return allowedExtensions.includes(`.${extension.toLowerCase()}`);
-    });
-  
-    if (validFiles.length !== files.length) {
-      setError('Please upload files with .pdf, .obj, or .stl extensions only.');
-    } else {
-      setFormData(prevFormData => ({
-        ...prevFormData,
-        files: [...prevFormData.files, ...validFiles],
-        emptyFields: emptyFields ? emptyFields.filter(field => field !== 'files') : [],
-        error: null
-      }));
-    }
-  };  
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const { structureId, userId, images, tags, files } = formData;
-    const catalog = { structureId, userId, structureType: 'house', images: images.map(image => image.name), tags: selectedTags, files: files.map(file => file.name) };
-    console.log("Form Data:", formData);
-    
-    try {
-      const apiUrl = 'http://localhost:4000/api/catalog';
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: JSON.stringify(catalog),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      const json = await response.json();
-  
-      if (!response.ok) {
-        setError(json.error);
-        setEmptyFields(json.emptyFields || []);
-      } else {
-        setEmptyFields([]);
-        setError(null);
-        setFormData({
-          structureType: 'house',
-          userId: 1579,
-          images: [],
-          tags: [],
-          files: []
-        });
-        dispatch({ type: 'CREATE_CATALOG', payload: json });
-        console.log(formData);
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      setError('An error occurred while submitting the form.');
-    }
-  };
-  
-
-
-  const handleCancel = () => {
-    navigate('/');
-  };
-
   return (
     <div className="form-container">
-      <form className="create" onSubmit={handleSubmit}> 
+      <form className="create" onSubmit={submitImage}> 
         <h3>Upload House Model</h3>
 
-        <label htmlFor="structureType">Structure Type</label>
-        <input 
-          type="text" 
-          id="structureType" 
-          name="structureType" 
-          value={formData.structureType} 
-          readOnly // Prevent editing
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Title"
+          required
+          onChange={(e) => setTitle(e.target.value)}
         />
-
-        <label htmlFor="userId">User ID</label>
-        <input 
-          type="text" 
-          id="userId" 
-          name="userId" 
-          value={formData.userId} 
-          readOnly // Prevent editing
+        <br />
+        <input
+          type="file"
+          class="form-control"
+          accept=".pdf,.stl,.obj"
+          required
+          onChange={(e) => setFile(e.target.files[0])}
         />
-
-        <label htmlFor="images">Images</label>
-        <input 
-          type="file" 
-          id="images" 
-          name="images" 
-          onChange={handleImageChange} 
-          multiple 
-          accept="image/*" 
-          className={emptyFields.includes('images') ? 'error' : ''}
-        />
-
-        <label htmlFor="tags">Tags</label>
-        <Select
-          id="tags"
-          name="tags"
-          value={selectedTags.map(tag => ({ value: tag, label: tag }))}
-          onChange={(selectedOptions) => setSelectedTags(selectedOptions.map(option => option.value))}
-          options={tagOptions}
-          isMulti
-        /><br/>
-
-        <label htmlFor="files">Files</label>
-        <input 
-          type="file" 
-          id="files" 
-          name="files" 
-          onChange={handleFileChange} 
-          multiple 
-          className={emptyFields.includes('files') ? 'error' : ''}
-        />
-
-        <div>
-          <button type="submit">Submit</button>
-          <button type="button" onClick={handleCancel}>Cancel</button>
-        </div>
-
-        {error && <div className="error">{error}</div>}
-
-        {formData.files.length > 0 && (
-          <div>
-            <h4>Selected Files:</h4>
-            <ul>
-              {formData.files.map((file, index) => (
-                <li key={index}>{file.name}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        </form>
-        </div>
+        <br />
+        <button class="btn btn-primary" type="submit">
+          Submit
+        </button>
+      </form>
+      
+      
+    </div>
 );
 };
 
